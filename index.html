@@ -67,7 +67,7 @@
         databaseURL:
           "https://my-click-counter-1fe4f.appspot.com",
         projectId: "my-click-counter-1fe4f",
-        storageBucket: "my-click-counter-1fe4f.firebasestorage.app",
+  storageBucket: "my-click-counter-1fe4f.appspot.com",
         messagingSenderId: "544124700834",
         appId: "1:544124700834:web:463e2069483b2bf031effb",
       };
@@ -302,7 +302,7 @@
 
     } else {
       // Невірно — підказка і передача ходу супернику
-      const hint = g < opponent.secret ? 'Забагато? (введи більше)' : 'Забагато? (введи менше)';
+  const hint = g < opponent.secret ? 'Замало? (введи більше)' : 'Забагато? (введи менше)';
       guessMsg.textContent = 'Невірно. ' + hint;
       // Передаємо хід опоненту
       const nextTurn = opponentRole;
