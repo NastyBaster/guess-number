@@ -192,7 +192,7 @@
     scoreEl.textContent = (score.p1 || 0) + ' - ' + (score.p2 || 0);
 
     // Секрет
-    if (me && me.secret !== null) {
+    if (me && typeof me.secret === 'number') {
       secretStatus.textContent = 'Секрет встановлено';
       secretInput.disabled = true;
       setSecretBtn.disabled = true;
