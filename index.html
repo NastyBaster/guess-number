@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8" />
+  <title>Guessing Rooms (Firebase Demo)</title>
+</head>
+<body>
+  <h2>Навчальна гра: вгадати число (2 гравці)</h2>
+
+  <!-- Блок створення/входу в кімнату -->
+  <div id="lobby">
+    <label>Твоє ім'я: <input id="name" placeholder="Гравець1"></label><br><br>
+    <button id="createBtn">Створити кімнату</button>
+    <br><br>
+    <label>Або приєднатися до кімнати за ID: <input id="joinId" placeholder="room-xxxx"></label>
+    <button id="joinBtn">Приєднатися</button>
+    <p id="lobbyMsg"></p>
+  </div>
+
+  <!-- Головний ігровий блок (приєднано) -->
+  <div id="game" style="display:none;">
+    <p>Кімната: <b id="roomIdEl"></b></p>
+    <p>Ти: <span id="playerName"></span> (<span id="playerRole"></span>)</p>
+    <p>Противник: <span id="opponentName">—</span></p>
+    <p>Рахунок: <span id="score">0 - 0</span></p>
+
+    <hr>
+
+    <!-- Встановити секретне число -->
+    <div id="secretBlock">
+      <label>Встанови своє секретне число (1-100): 
+        <input type="number" id="secretInput" min="1" max="100">
+      </label>
+      <button id="setSecretBtn">Готово</button>
+      <p id="secretStatus">Не встановлено</p>
+    </div>
+
+    <hr>
+
+    <!-- Гадання -->
+    <div id="guessBlock" style="display:none;">
+      <p>Хід: <b id="turnEl">—</b></p>
+      <p>Спроби цього раунду: Ти — <span id="myAttempts">0</span>, Суперник — <span id="oppAttempts">0</span></p>
+
+      <label>Введи число, щоб вгадати супротивника: 
+        <input type="number" id="guessInput" min="1" max="100">
+      </label>
+      <button id="guessBtn">Відправити спробу</button>
+      <p id="guessMsg"></p>
+    </div>
+
+    <hr>
+
+    <button id="leaveBtn">Вийти з кімнати</button>
+    <p id="gameMsg"></p>
+  </div>
+
+  <!-- Firebase SDK (compat для простоти) -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+
+  <script>
+  // ---- ВСТАВ СЮДИ СВІЙ FIREBASE CONFIG ----
+  const firebaseConfig = {
+        apiKey: "AIzaSyCYA1jhBcKUmh2fWOy5CqAbKG1QXkFsAjI",
+        authDomain: "my-click-counter-1fe4f.firebaseapp.com",
+        databaseURL:
+          "https://my-click-counter-1fe4f.appspot.com",
+        projectId: "my-click-counter-1fe4f",
+        storageBucket: "my-click-counter-1fe4f.firebasestorage.app",
+        messagingSenderId: "544124700834",
+        appId: "1:544124700834:web:463e2069483b2bf031effb",
+      };
+  // -----------------------------------------
+
+  if (!firebaseConfig || !firebaseConfig.apiKey) {
+    alert("Встав свій Firebase config у код перед використанням.");
+    throw new Error("Firebase config not provided");
+  }
+
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+
+  // DOM елементи
+  const createBtn = document.getElementById('createBtn');
+  const joinBtn = document.getElementById('joinBtn');
+  const nameInput = document.getElementById('name');
+  const joinIdInput = document.getElementById('joinId');
+  const lobbyMsg = document.getElementById('lobbyMsg');
+
+  const gameDiv = document.getElementById('game');
+  const lobbyDiv = document.getElementById('lobby');
+  const roomIdEl = document.getElementById('roomIdEl');
+  const playerNameEl = document.getElementById('playerName');
+  const playerRoleEl = document.getElementById('playerRole');
+  const opponentNameEl = document.getElementById('opponentName');
+  const scoreEl = document.getElementById('score');
+
+  const secretInput = document.getElementById('secretInput');
+  const setSecretBtn = document.getElementById('setSecretBtn');
+  const secretStatus = document.getElementById('secretStatus');
+
+  const guessBlock = document.getElementById('guessBlock');
+  const turnEl = document.getElementById('turnEl');
+  const guessInput = document.getElementById('guessInput');
+  const guessBtn = document.getElementById('guessBtn');
+  const guessMsg = document.getElementById('guessMsg');
+  const myAttemptsEl = document.getElementById('myAttempts');
+  const oppAttemptsEl = document.getElementById('oppAttempts');
+
+  const leaveBtn = document.getElementById('leaveBtn');
+  const gameMsg = document.getElementById('gameMsg');
+
+  // Локальні змінні
+  let roomRef = null;
+  let roomId = null;
+  let myName = '';
+  let myRole = ''; // "p1" або "p2"
+  let opponentRole = '';
+  let unsubRoomListener = null;
+
+  // Створити кімнату
+  createBtn.onclick = async () => {
+    myName = nameInput.value.trim() || 'Player1';
+    // генеруємо простий id
+    const newRoomKey = db.ref('rooms').push().key;
+    const rRef = db.ref('rooms/' + newRoomKey);
+    const initial = {
+      createdAt: firebase.database.ServerValue.TIMESTAMP,
+      state: 'waiting', // waiting -> playing
+      turn: null,
+      scores: { p1: 0, p2: 0 },
+      players: {
+        p1: { name: myName, secret: null, ready: false, attempts: 0 },
+        p2: null
+      },
+      round: { number: 1 } // простий лічильник раундів
+    };
+    await rRef.set(initial);
+    joinRoom(newRoomKey, 'p1');
+  };
+
+  // Приєднатися до кімнати
+  joinBtn.onclick = async () => {
+    myName = nameInput.value.trim() || 'Player';
+    const id = joinIdInput.value.trim();
+    if (!id) { lobbyMsg.textContent = 'Введи ID кімнати'; return; }
+    const p = await db.ref('rooms/' + id + '/players').once('value');
+    if (!p.exists()) { lobbyMsg.textContent = 'Кімната не існує або помилка'; return; }
+    const players = p.val();
+    if (players.p2) { lobbyMsg.textContent = 'Кімната вже зайнята (2 гравці)'; return; }
+    // Додаємо як p2
+    await db.ref('rooms/' + id + '/players/p2').set({ name: myName, secret: null, ready: false, attempts: 0 });
+    await db.ref('rooms/' + id + '/state').set('waiting');
+    joinRoom(id, 'p2');
+  };
+
+  // Функція, яка ініціює локальні налаштування після приєднання
+  function joinRoom(id, role) {
+    roomId = id;
+    myRole = role;
+    opponentRole = role === 'p1' ? 'p2' : 'p1';
+    roomRef = db.ref('rooms/' + roomId);
+
+    lobbyDiv.style.display = 'none';
+    gameDiv.style.display = 'block';
+    roomIdEl.textContent = roomId;
+    playerNameEl.textContent = myName;
+    playerRoleEl.textContent = myRole;
+
+    // Слухаємо зміни в кімнаті
+    if (unsubRoomListener) unsubRoomListener();
+    const listener = roomRef.on('value', snapshot => {
+      const data = snapshot.val();
+      if (!data) {
+        gameMsg.textContent = 'Кімната видалена або зникла';
+        return;
+      }
+      renderRoom(data);
+    });
+    unsubRoomListener = () => roomRef.off('value', listener);
+  }
+
+  // Відмалювати інтерфейс гри відповідно до даних
+  function renderRoom(data) {
+    const players = data.players || {};
+    const me = players[myRole];
+    const opp = players[opponentRole];
+
+    opponentNameEl.textContent = opp && opp.name ? opp.name : '—';
+    const score = data.scores || { p1:0, p2:0 };
+    scoreEl.textContent = (score.p1 || 0) + ' - ' + (score.p2 || 0);
+
+    // Секрет
+    if (me && me.secret !== null) {
+      secretStatus.textContent = 'Секрет встановлено';
+      secretInput.disabled = true;
+      setSecretBtn.disabled = true;
+    } else {
+      secretStatus.textContent = 'Не встановлено';
+      secretInput.disabled = false;
+      setSecretBtn.disabled = false;
+    }
+
+    // Чи обидва ready?
+    const bothReady = me && opp && me.ready && opp.ready;
+
+    // Коли починати гру: якщо обидва готові -> state = playing
+    if (bothReady && data.state !== 'playing') {
+      roomRef.update({ state: 'playing', turn: 'p1' }); // починає p1
+    }
+
+    // Коли гра в стані playing - показуємо блок для гадань
+    if (data.state === 'playing') {
+      guessBlock.style.display = 'block';
+      turnEl.textContent = data.turn;
+      myAttemptsEl.textContent = me ? (me.attempts || 0) : 0;
+      oppAttemptsEl.textContent = opp ? (opp.attempts || 0) : 0;
+      // Якщо гра завершилась у цьому snapshot (наприклад, переможець визначено), обробимо
+      if (data.lastRoundResult) {
+        // показуємо повідомлення і підготуємо наступний раунд
+        gameMsg.textContent = 'Результат раунду: ' + JSON.stringify(data.lastRoundResult);
+        // видаляємо lastRoundResult після короткого таймауту і скидаємо стани для наступного раунду
+        setTimeout(() => {
+          roomRef.child('lastRoundResult').remove();
+          prepareNextRound();
+        }, 2500);
+      } else {
+        gameMsg.textContent = '';
+      }
+    } else {
+      guessBlock.style.display = 'none';
+      turnEl.textContent = '—';
+      gameMsg.textContent = data.state === 'waiting' ? 'Чекаємо другого гравця / обидва мають встановити секрет' : '';
+    }
+  }
+
+  // Встановлення секретного числа
+  setSecretBtn.onclick = async () => {
+    const val = parseInt(secretInput.value, 10);
+    if (!val || val < 1 || val > 100) { alert('Вкажи число 1-100'); return; }
+    // Записати секрет і ready=true
+    await roomRef.child('players/' + myRole).update({ secret: val, ready: true, attempts: 0 });
+    secretStatus.textContent = 'Секрет встановлено, чекаємо опонента';
+  };
+
+  // Відправити спробу вгадати
+  guessBtn.onclick = async () => {
+    const g = parseInt(guessInput.value, 10);
+    if (!g || g < 1 || g > 100) { alert('Вкажи число 1-100'); return; }
+    // читаємо поточну кімнату
+    const snap = await roomRef.once('value');
+    const data = snap.val();
+    if (!data || data.state !== 'playing') { alert('Гра ще не почалась'); return; }
+    if (data.turn !== myRole) { alert('Зараз не твій хід'); return; }
+
+    const opponent = (data.players || {})[opponentRole];
+    if (!opponent || opponent.secret === null) { alert('Противник не встановив секрет'); return; }
+
+    // Збільшуємо лічильник спроб для мене
+    const myAttempts = ((data.players[myRole] && data.players[myRole].attempts) || 0) + 1;
+    await roomRef.child('players/' + myRole).update({ attempts: myAttempts });
+
+    // Перевіряємо вгадування
+    if (g === opponent.secret) {
+      // Ти вгадав секрет опонента
+      // Отримуємо кількість спроб обох
+      const oppAttempts = (data.players[opponentRole] && data.players[opponentRole].attempts) || 0;
+      const myAttemptsFinal = myAttempts;
+      // Визначаємо переможця — хто зробив менше спроб для вгадування суперника в цьому раунді.
+      // Але правила: обидва гравці вгадують числа один одного в ходах — у нашій простій версії
+      // ми врахували, що раунд завершується одразу, коли хтось вгадав опонента. Тоді переможець — той, що вгадав,
+      // порівнюємо attempts вгадувача з attempts опонента (можуть бути 0 якщо ще не вгадував).
+      let winner = null;
+      // якщо опонент вже вгадав раніше (має attempts >0 і був той, хто вгадав) — цей випадок не очікуємо в нашому flow
+      // Ми запишемо lastRoundResult з attempts і присвоїмо очко гравцю з меншим attempts, якщо рівні — нічия.
+      // Для простоти: даємо очко вгадувачу.
+      winner = myRole;
+
+      // Оновлюємо рахунок
+      const scores = data.scores || { p1: 0, p2: 0 };
+      if (winner === 'p1') scores.p1 = (scores.p1 || 0) + 1;
+      else if (winner === 'p2') scores.p2 = (scores.p2 || 0) + 1;
+
+      // Запис результату раунду, щоб усі бачили
+      const lastRoundResult = {
+        winner,
+        guesser: myRole,
+        guesserAttempts: myAttemptsFinal,
+        opponentAttempts: oppAttempts,
+        roundNumber: data.round && data.round.number ? data.round.number : 1
+      };
+
+      await roomRef.update({
+        scores,
+        lastRoundResult,
+        // ставимо state = waiting щоб підготувати наступний раунд (після таймауту prepareNextRound скине secrets)
+        state: 'waiting'
+      });
+
+      guessMsg.textContent = 'Вірно! Ти вгадав.';
+
+    } else {
+      // Невірно — підказка і передача ходу супернику
+      const hint = g < opponent.secret ? 'Забагато? (введи більше)' : 'Забагато? (введи менше)';
+      guessMsg.textContent = 'Невірно. ' + hint;
+      // Передаємо хід опоненту
+      const nextTurn = opponentRole;
+      await roomRef.update({ turn: nextTurn });
+    }
+  };
+
+  // Підготувати наступний раунд (скинути секрети, attempts, збільшити номер раунду)
+  async function prepareNextRound() {
+    const snap = await roomRef.once('value');
+    const data = snap.val();
+    if (!data) return;
+    const nextRound = (data.round && data.round.number ? data.round.number + 1 : 2);
+    const updates = {
+      state: 'waiting',
+      turn: null,
+      round: { number: nextRound },
+      // Скидаємо секрети/ready/attempts в players
+    };
+    // скинути для p1 і p2 (якщо існують)
+    if (data.players && data.players.p1) {
+      updates['players/p1/secret'] = null;
+      updates['players/p1/ready'] = false;
+      updates['players/p1/attempts'] = 0;
+    }
+    if (data.players && data.players.p2) {
+      updates['players/p2/secret'] = null;
+      updates['players/p2/ready'] = false;
+      updates['players/p2/attempts'] = 0;
+    }
+    await roomRef.update(updates);
+  }
+
+  // Вийти з кімнати (видаляємо свого гравця)
+  leaveBtn.onclick = async () => {
+    if (!roomRef) return;
+    await roomRef.child('players/' + myRole).remove();
+    // Якщо кімната лишилася порожньою, видалити її
+    const snap = await roomRef.child('players').once('value');
+    if (!snap.exists() || Object.keys(snap.val()).length === 0) {
+      await roomRef.remove();
+    }
+    // reset UI
+    if (unsubRoomListener) unsubRoomListener();
+    roomRef = null;
+    roomId = null;
+    lobbyDiv.style.display = 'block';
+    gameDiv.style.display = 'none';
+    lobbyMsg.textContent = 'Ви вийшли з кімнати';
+  };
+
+  // перед закриттям вкладки - прибрати себе з кімнати (чисто для тесту)
+  window.addEventListener('beforeunload', async (e) => {
+    // необов'язково чекаємо завершення
+    if (roomRef && myRole) {
+      await roomRef.child('players/' + myRole).remove();
+    }
+  });
+
+  // Додаткові підказки: можна клікнути на room id (скопіювати) — не додано для простоти.
+  </script>
+</body>
+</html>
