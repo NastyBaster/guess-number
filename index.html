@@ -207,12 +207,13 @@
 
     // Коли починати гру: якщо обидва готові -> state = playing
     if (bothReady && data.state === 'waiting') {
-      // Використовуємо транзакцію, щоб уникнути race condition
-      roomRef.child('state').transaction(current => {
-        if (current === 'waiting') return 'playing';
-        return; // не змінювати, якщо вже не waiting
+      // Атомарно оновлюємо state і turn разом
+      roomRef.transaction(current => {
+        if (current && current.state === 'waiting') {
+          return { ...current, state: 'playing', turn: 'p1' };
+        }
+        return current;
       });
-      roomRef.child('turn').set('p1');
     }
 
     // Коли гра в стані playing - показуємо блок для гадань
