@@ -206,8 +206,13 @@
     const bothReady = me && opp && me.ready && opp.ready;
 
     // Коли починати гру: якщо обидва готові -> state = playing
-    if (bothReady && data.state !== 'playing') {
-      roomRef.update({ state: 'playing', turn: 'p1' }); // починає p1
+    if (bothReady && data.state === 'waiting') {
+      // Використовуємо транзакцію, щоб уникнути race condition
+      roomRef.child('state').transaction(current => {
+        if (current === 'waiting') return 'playing';
+        return; // не змінювати, якщо вже не waiting
+      });
+      roomRef.child('turn').set('p1');
     }
 
     // Коли гра в стані playing - показуємо блок для гадань
