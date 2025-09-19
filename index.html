@@ -183,6 +183,17 @@
 
   // Відмалювати інтерфейс гри відповідно до даних
   function renderRoom(data) {
+    // Діагностика
+    console.log('renderRoom:', {
+      me,
+      opp,
+      myRole,
+      opponentRole,
+      bothReady: me && opp && me.ready && opp.ready,
+      meReady: me && me.ready,
+      oppReady: opp && opp.ready,
+      state: data.state
+    });
     const players = data.players || {};
     const me = players[myRole];
     const opp = players[opponentRole];
