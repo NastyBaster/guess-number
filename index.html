@@ -7,8 +7,9 @@
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="styles.css" />
 
-  <!-- Firebase SDK через CDN -->
+  <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 </head>
 <body>
@@ -21,20 +22,29 @@
   </header>
   
   <main>
-    <div class="button-group">
-      <button id="createRoomBtn" aria-label="Створити нову кімнату">Створити кімнату</button>
-      <button id="joinRoomBtn" aria-label="Приєднатись до існуючої гри">Приєднатись до гри</button>
+    <div id="auth-section">
+      <button id="btn-google-auth">Увійти через Google</button>
+      <br />
+      <input id="email-input" type="email" placeholder="Email" />
+      <input id="password-input" type="password" placeholder="Пароль" />
+      <button id="btn-email-signin">Увійти/зареєструватись</button>
     </div>
-    
-    <section aria-label="Список активних кімнат" tabindex="0" class="room-list" id="roomList">
-      <div>Активних кімнат поки немає</div>
-    </section>
+
+    <div id="lobby-section" style="display:none;">
+      <div class="button-group">
+        <button id="createRoomBtn">Створити кімнату</button>
+        <button id="joinRoomBtn">Приєднатись до гри</button>
+        <button id="btn-logout">Вийти</button>
+      </div>
+      
+      <section aria-label="Список активних кімнат" tabindex="0" class="room-list" id="roomList">
+        <div>Активних кімнат поки немає</div>
+      </section>
+      
+      <div id="statusBar" class="status-bar" aria-live="polite"></div>
+    </div>
   </main>
   
-  <footer class="status-bar" id="statusBar" aria-live="polite">
-    Готовий до гри. Натисніть "Створити кімнату" або "Приєднатись до гри".
-  </footer>
-
   <script src="firebase-config.js"></script>
   <script src="app.js"></script>
 </body>
