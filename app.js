@@ -18,13 +18,12 @@ btnGoogleAuth.addEventListener('click', () => {
   });
 });
 
-// Авторизація Email/Пароль (реєстрація/вхід)
+// Авторизація Email/Пароль (вхід або реєстрація)
 btnEmailSignIn.addEventListener('click', () => {
   const email = document.getElementById('email-input').value;
   const password = document.getElementById('password-input').value;
   auth.signInWithEmailAndPassword(email, password)
     .catch(() => {
-      // Якщо вхід не вдався, реєструємось
       auth.createUserWithEmailAndPassword(email, password)
         .catch(error => {
           statusBar.textContent = error.message;
@@ -32,7 +31,7 @@ btnEmailSignIn.addEventListener('click', () => {
     });
 });
 
-// Вихід
+// Вихід з аккаунта
 btnLogout.addEventListener('click', () => {
   auth.signOut();
 });
@@ -51,7 +50,7 @@ auth.onAuthStateChanged(user => {
   }
 });
 
-// Запуск лоббі
+// Логіка лоббі: створення та приєднання до кімнат
 function startLobby(user) {
   const roomsRef = db.ref('rooms');
 
@@ -66,6 +65,7 @@ function startLobby(user) {
       chat: {}
     }).then(() => {
       statusBar.textContent = `Кімната створена, ID: ${newRoomRef.key}`;
+      observeRoom(newRoomRef.key, user);
     });
   };
 
@@ -82,6 +82,7 @@ function startLobby(user) {
     });
   };
 
+  // Функція приєднання до кімнати
   function joinRoom(roomId, user) {
     const roomRef = db.ref(`rooms/${roomId}`);
 
@@ -97,37 +98,34 @@ function startLobby(user) {
     }).then(result => {
       if (result.committed) {
         statusBar.textContent = `Приєдналися до кімнати ${roomId}`;
-        observeGame(roomId, user);
+        observeRoom(roomId, user);
       } else {
         statusBar.textContent = 'Не вдалося приєднатися, кімната повна';
       }
     });
   }
 
-  // Перегляд оновлень у грі
-  function observeGame(roomId, user) {
+  // Спостереження за кімнатою – оновлення гри в реальному часі
+  function observeRoom(roomId, user) {
     const roomRef = db.ref(`rooms/${roomId}`);
 
     roomRef.on('value', snapshot => {
       const room = snapshot.val();
       if (!room) return;
 
-      // TODO: виводити тут інтерфейс гри, стежити за подіями, показувати чат, хід гри...
+      // Вивід або логіка гри тут. Поки просто інформація для прикладу:
+      statusBar.textContent = `Кімната ${roomId} - гравців: ${Object.keys(room.players).length}`;
 
-      // Наприклад, якщо обидва гравці готові - починаємо гру
+      // Коли кількість гравців 2, починаємо гру
       if (room.gameStatus === 'readyToStart') {
         startGame(room, roomId, user);
       }
     });
   }
 
-  // Початок гри (потрібно доповнити)
+  // Початок гри (примітивна логіка)
   function startGame(room, roomId, user) {
-    if (!room.secretNumbers) {
-      // Задаємо секретні числа (перший етап гри)
-      // TODO: показати UI для введення числа
-    }
-
-    // TODO: інша логіка гри
+    // TODO: реалізація введення чисел, вгадування, чат тощо
+    statusBar.textContent = `Гра почалася! У кімнаті ${roomId}.`;
   }
 }

@@ -1,5 +1,3 @@
-// Конфіг Firebase і ініціалізація
-
 const firebaseConfig = {
   apiKey: "AIzaSyCYA1jhBcKUmh2fWOy5CqAbKG1QXkFsAjI",
   authDomain: "my-click-counter-1fe4f.firebaseapp.com",
@@ -12,4 +10,5 @@ const firebaseConfig = {
 
 firebase.initializeApp(firebaseConfig);
 
+const auth = firebase.auth();
 const db = firebase.database();
