@@ -1,4 +1,4 @@
-/* Основні стилі та скидання */
+/* Basic styles and reset */
 * {
   box-sizing: border-box;
 }
@@ -24,7 +24,7 @@ header {
   gap: 0.5rem;
   user-select: none;
 }
-/* Анімація кнопок */
+/* Button animation */
 button {
   background-color: #4A90E2;
   border: none;
@@ -75,6 +75,15 @@ main {
 }
 .room-item:hover {
   background-color: #e3f2fd;
+}
+.room-item.full {
+  background-color: #e0e0e0;
+  cursor: not-allowed;
+  color: #9e9e9e;
+}
+
+.room-item.full:hover {
+  background-color: #e0e0e0;
 }
 footer.status-bar {
   width: 100%;
