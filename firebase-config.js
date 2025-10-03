@@ -1,15 +1,15 @@
-// Імпорт Firebase SDK
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+// Конфіг Firebase і ініціалізація
 
-// Конфігурація Firebase - заміни на свої власні конфіг дані, взяті з Firebase Console
 const firebaseConfig = {
-  apiKey: "ВАШ_API_KEY",
-  authDomain: "ВАШ_ДОМЕН.firebaseapp.com",
-  projectId: "ВАШ_PROJECT_ID",
-  storageBucket: "ВАШ_ДОМЕН.appspot.com",
-  messagingSenderId: "ВАШ_ІД_ВІДПРАВНИКА",
-  appId: "ВАШ_APP_ID"
+  apiKey: "AIzaSyCYA1jhBcKUmh2fWOy5CqAbKG1QXkFsAjI",
+  authDomain: "my-click-counter-1fe4f.firebaseapp.com",
+  databaseURL: "https://my-click-counter-1fe4f-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "my-click-counter-1fe4f",
+  storageBucket: "my-click-counter-1fe4f.appspot.com",
+  messagingSenderId: "544124700834",
+  appId: "1:544124700834:web:463e2069483b2bf031effb"
 };
 
-const app = initializeApp(firebaseConfig);
-export { app };
+firebase.initializeApp(firebaseConfig);
+
+const db = firebase.database();

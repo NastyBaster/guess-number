@@ -6,6 +6,10 @@
   <title>Вгадай число - Лоббі</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="styles.css" />
+
+  <!-- Firebase SDK через CDN -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 </head>
 <body>
   <header>
@@ -30,7 +34,7 @@
   <footer class="status-bar" id="statusBar" aria-live="polite">
     Готовий до гри. Натисніть "Створити кімнату" або "Приєднатись до гри".
   </footer>
-  
+
   <script src="firebase-config.js"></script>
   <script src="app.js"></script>
 </body>
