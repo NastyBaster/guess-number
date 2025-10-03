@@ -18,7 +18,7 @@ btnGoogleAuth.addEventListener('click', () => {
   });
 });
 
-// Авторизація Email/Пароль (вхід або реєстрація)
+// Авторизація Email/Пароль (спочатку вхід, якщо не вдалося - реєстрація)
 btnEmailSignIn.addEventListener('click', () => {
   const email = document.getElementById('email-input').value;
   const password = document.getElementById('password-input').value;
@@ -31,12 +31,12 @@ btnEmailSignIn.addEventListener('click', () => {
     });
 });
 
-// Вихід з аккаунта
+// Вихід користувача
 btnLogout.addEventListener('click', () => {
   auth.signOut();
 });
 
-// Слухач змін авторизації
+// Підписка на зміну стану авторизації
 auth.onAuthStateChanged(user => {
   if (user) {
     authSection.style.display = 'none';
@@ -50,9 +50,19 @@ auth.onAuthStateChanged(user => {
   }
 });
 
-// Логіка лоббі: створення та приєднання до кімнат
+// Лоббі: прослуховування кімнат і оновлення списку
 function startLobby(user) {
   const roomsRef = db.ref('rooms');
+
+  // Підписка на всі кімнати у реальному часі
+  roomsRef.on('value', snapshot => {
+    const rooms = snapshot.val();
+    if (!rooms) {
+      roomList.textContent = 'Активних кімнат поки немає';
+      return;
+    }
+    updateRoomList(rooms);
+  });
 
   createRoomBtn.onclick = () => {
     statusBar.textContent = 'Створення кімнати...';
@@ -82,7 +92,6 @@ function startLobby(user) {
     });
   };
 
-  // Функція приєднання до кімнати
   function joinRoom(roomId, user) {
     const roomRef = db.ref(`rooms/${roomId}`);
 
@@ -105,7 +114,7 @@ function startLobby(user) {
     });
   }
 
-  // Спостереження за кімнатою – оновлення гри в реальному часі
+  // Оновлення кімнати у реальному часі
   function observeRoom(roomId, user) {
     const roomRef = db.ref(`rooms/${roomId}`);
 
@@ -113,19 +122,82 @@ function startLobby(user) {
       const room = snapshot.val();
       if (!room) return;
 
-      // Вивід або логіка гри тут. Поки просто інформація для прикладу:
       statusBar.textContent = `Кімната ${roomId} - гравців: ${Object.keys(room.players).length}`;
 
-      // Коли кількість гравців 2, починаємо гру
       if (room.gameStatus === 'readyToStart') {
         startGame(room, roomId, user);
       }
     });
   }
 
-  // Початок гри (примітивна логіка)
+  // Функція старту гри (потрібно доповнити)
   function startGame(room, roomId, user) {
-    // TODO: реалізація введення чисел, вгадування, чат тощо
     statusBar.textContent = `Гра почалася! У кімнаті ${roomId}.`;
+    // ТУТ реалізуйте подальшу логіку гри: введення чисел, підказки, вгадування, чат тощо
   }
+}
+
+// Оновлення списку кімнат
+function updateRoomList(rooms) {
+  roomList.innerHTML = '';
+  Object.entries(rooms).forEach(([roomId, room]) => {
+    const div = document.createElement('div');
+    div.className = 'room-item';
+    const playersCount = room.players ? Object.keys(room.players).length : 0;
+    div.textContent = `Кімната #${roomId} - ${playersCount}/2 гравців`;
+    div.tabIndex = 0;
+    div.addEventListener('click', () => {
+      if (playersCount < 2) {
+        joinRoom(roomId, firebase.auth().currentUser);
+      } else {
+        alert('Ця кімната повна');
+      }
+    });
+    roomList.appendChild(div);
+  });
+}
+
+// Функція joinRoom доступна з глобальної області щоб викликати з updateRoomList
+function joinRoom(roomId, user) {
+  const roomRef = db.ref(`rooms/${roomId}`);
+
+  roomRef.transaction(room => {
+    if (room && Object.keys(room.players).length < 2) {
+      room.players[user.uid] = { ready: false };
+      if (Object.keys(room.players).length === 2) {
+        room.gameStatus = 'readyToStart';
+      }
+      return room;
+    }
+    return;
+  }).then(result => {
+    if (result.committed) {
+      statusBar.textContent = `Приєдналися до кімнати ${roomId}`;
+      observeRoom(roomId, user);
+    } else {
+      statusBar.textContent = 'Не вдалося приєднатися, кімната повна';
+    }
+  });
+}
+
+// Функція observeRoom теж повинна бути доступна глобально (якщо треба, винесіть вгору)
+function observeRoom(roomId, user) {
+  const roomRef = db.ref(`rooms/${roomId}`);
+
+  roomRef.on('value', snapshot => {
+    const room = snapshot.val();
+    if (!room) return;
+
+    statusBar.textContent = `Кімната ${roomId} - гравців: ${Object.keys(room.players).length}`;
+
+    if (room.gameStatus === 'readyToStart') {
+      startGame(room, roomId, user);
+    }
+  });
+}
+
+// Зробіть startGame функцію глобальною, або реалізуйте далі
+function startGame(room, roomId, user) {
+  statusBar.textContent = `Гра почалася! У кімнаті ${roomId}.`;
+  // Подальша логіка
 }
